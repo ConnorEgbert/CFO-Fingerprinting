@@ -48,4 +48,6 @@ kill $pid &>/dev/null
 echo
 echo "Calculating values..."
 
+python3 colorMapping.py ./CFO_data/$of $freq
+
 python offset_analysis.py ./CFO_data/$of 
