@@ -6,6 +6,7 @@ import webcolors
 import statistics
 import sys
 import time
+import re
 
 
 def closest_colour(requested_colour):
@@ -23,8 +24,24 @@ def get_colour_name(requested_colour):
         closest_name = actual_name = webcolors.rgb_to_name(requested_colour)
     except ValueError:
         closest_name = closest_colour(requested_colour)
+
         actual_name = None
-    return actual_name, closest_name
+    switcher = {
+        "yellowgreen": "Yellow-green",
+        "lightgreen": "Light green",
+        "greenyellow": "Green-yellow",
+        "darkblue": "Dark blue",
+        "deepskyblue": "Deep sky blue",
+        "darkorange": "Dark orange",
+        "dodgerblue": "Dodger blue",
+        "mediumaquamarine": "Medium aqua marine",
+        "firebrick": "Fire brick",
+        "orangered": "Orange red",
+        "mediumblue": "Medium blue",
+        "darkred": "Dark red",
+    }
+    closest_name = switcher.get(closest_name, closest_name)
+    return closest_name
 
 #https://www.oreilly.com/library/view/python-cookbook/0596001673/ch09s11.html
 def floatRgb(mag, cmin, cmax):
@@ -46,12 +63,23 @@ def strRgb(mag, cmin, cmax):
     """ Return a hex string, as used in Tk plots. """
     return "#%02x%02x%02x" % rgb(mag, cmin, cmax)
 
-
-offsetRangeHalf = 200
+if int(sys.argv[2]) < 4000:
+    offsetRangeHalf = 120
+else:
+    offsetRangeHalf = 200
 MASTER = Tk()
-MASTER.geometry("500x500")
-colorStr = StringVar()
-label = Label(MASTER, textvariable=colorStr)
+MASTER.title('Color Mapping...')
+simage = PhotoImage(file="./ritimg.png")
+sanvas = Canvas(MASTER, width=500, height=625)
+sanvas.create_image(250, 400, image=simage, anchor=CENTER)
+sanvas.create_text(110, 450, text="Your fingerprint color:",font=('Helvetica', '16'),fill='white' )
+dataStr = StringVar()
+datalabel = Label(MASTER, justify=LEFT, textvariable=dataStr, bg='#303030', anchor='s', font=("verdana",24))
+datalabel.place(relx=0.01,rely=0.732)
+dataStr.set("Calculating initial estimate")
+sanvas.pack()
+MASTER.update()
+
 cmin = -1 * offsetRangeHalf
 cmax = offsetRangeHalf
 cum_sum = 0
@@ -65,13 +93,11 @@ sample_means = []
 samples = []
 sample_count = 0
 
-sys.stdout.write("Progress: 0%\r")
+sys.stdout.write("Samples taken: 0%\r")
 sys.stdout.flush()
 
 for line in sys.stdin:
-    # Regex is for losers. I don't have that kind of time.
-    # Short: 24.4129\tLong: -46.9406\tTotal CFO: -46.9162\n
-    if line[:7] == "Short: ":
+    if re.match("^Short: [0-9]+.[0-9]+\tLong: [0-9]+.[0-9]+\tTotal CFO: [0-9]+.[0-9]+", line):
         line = line.split("\t")
         cfo = float(line[0].split(" ")[1]) + float(line[1].split(" ")[1])
         sample_count += 1
@@ -81,11 +107,11 @@ for line in sys.stdin:
             Liveaverage = cum_sum / sample_count
             try:
                 colorHex = strRgb(Liveaverage, cmin, cmax)
+                sanvas.configure(background=colorHex)
                 rgbColor = rgb(Liveaverage, cmin, cmax)
-                actual_name, closest_name = get_colour_name(rgbColor)
-                colorStr.set(colorHex + "   " + str(Liveaverage) + "   " + closest_name)
-                label.pack()
-                MASTER.configure(background=colorHex)
+                closest_name = get_colour_name(rgbColor)
+                dataStr.set(closest_name.capitalize())
+                datalabel.configure(fg=colorHex)
                 MASTER.update()
             except:
                 pass
@@ -97,8 +123,8 @@ for line in sys.stdin:
             if len(sample_means) == 10:
                 break
 
-label.configure(font=(95))
-label.pack()
+sanvas.create_text(118, 558, text="Hex Color Code: "+ str(colorHex) + "\nAveraged CFO: "+ str(round(Liveaverage,5))+ " kHz",font=('Helvetica', '13'),fill='white')
+MASTER.title('Color Mapped!')
 MASTER.update()
 
 print()
@@ -116,6 +142,6 @@ print("Std deviation:\t\t{}".format(statistics.stdev(sample_means)))
 with open("seen_devices.csv", "a") as f:
     f.write("{},{},{}\n".format(sys.argv[1], mean_estimator, stdev_estimator))
 
-time.sleep(10)
+input()
 
 exit(0)
