@@ -27,9 +27,9 @@ def get_colour_name(requested_colour):
 
         actual_name = None
     switcher = {
-        "yellowgreen": "Yellow-green",
+        "yellowgreen": "Yellow green",
         "lightgreen": "Light green",
-        "greenyellow": "Green-yellow",
+        "greenyellow": "Green yellow",
         "darkblue": "Dark blue",
         "deepskyblue": "Deep sky blue",
         "darkorange": "Dark orange",
@@ -63,6 +63,7 @@ def strRgb(mag, cmin, cmax):
     """ Return a hex string, as used in Tk plots. """
     return "#%02x%02x%02x" % rgb(mag, cmin, cmax)
 
+
 if int(sys.argv[2]) < 4000:
     offsetRangeHalf = 120
 else:
@@ -70,13 +71,17 @@ else:
 MASTER = Tk()
 MASTER.title('Color Mapping...')
 simage = PhotoImage(file="./ritimg.png")
-sanvas = Canvas(MASTER, width=500, height=625)
+sanvas = Canvas(MASTER, width=498, height=625)
 sanvas.create_image(250, 400, image=simage, anchor=CENTER)
 sanvas.create_text(110, 450, text="Your fingerprint color:",font=('Helvetica', '16'),fill='white' )
+sanvas.create_text(105, 575, text="Hex Code      Mean CFO ", font=('Helvetica', '13'), fill='#C9C9C9')
 dataStr = StringVar()
+sampleStr = StringVar()
+samplelabel = Label(MASTER, justify=LEFT, textvariable=sampleStr, bg='#303030', font=("helvetica",13), fg='#C9C9C9')
+samplelabel.place(relx=0.75, rely=0.95)
 datalabel = Label(MASTER, justify=LEFT, textvariable=dataStr, bg='#303030', anchor='s', font=("verdana",24))
-datalabel.place(relx=0.01,rely=0.732)
-dataStr.set("Calculating initial estimate")
+datalabel.place(relx=0.017,rely=0.785)
+#dataStr.set("Calculating initial estimate")
 sanvas.pack()
 MASTER.update()
 
@@ -93,8 +98,10 @@ sample_means = []
 samples = []
 sample_count = 0
 
-sys.stdout.write("Samples taken: 0%\r")
+sys.stdout.write("Samples taken: 0\r")
 sys.stdout.flush()
+
+list_avg = []
 
 for line in sys.stdin:
     if re.match("^Short: [0-9]+.[0-9]+\tLong: [0-9]+.[0-9]+\tTotal CFO: [0-9]+.[0-9]+", line):
@@ -103,19 +110,20 @@ for line in sys.stdin:
         sample_count += 1
         samples.append(cfo)
         cum_sum += cfo
+        Liveaverage = cum_sum / sample_count
+        list_avg.append(Liveaverage)
+        try:
+            colorHex = strRgb(Liveaverage, cmin, cmax)
+            sanvas.configure(background=colorHex)
+            rgbColor = rgb(Liveaverage, cmin, cmax)
+            closest_name = get_colour_name(rgbColor)
+            dataStr.set(closest_name.capitalize())
+            datalabel.configure(fg=colorHex)
+            sampleStr.set("{:,}".format(sample_count) + " / 1,000" )
+            MASTER.update()
+        except:
+            pass
         if sample_count % 100 == 0:
-            Liveaverage = cum_sum / sample_count
-            try:
-                colorHex = strRgb(Liveaverage, cmin, cmax)
-                sanvas.configure(background=colorHex)
-                rgbColor = rgb(Liveaverage, cmin, cmax)
-                closest_name = get_colour_name(rgbColor)
-                dataStr.set(closest_name.capitalize())
-                datalabel.configure(fg=colorHex)
-                MASTER.update()
-            except:
-                pass
-        if sample_count % 1000 == 0:
             sample_means.append(stats.trim_mean(samples, trim)) # Remove (trim) percentage of outliers
             samples = []
             sys.stdout.write("Samples taken: {}\r".format(sample_count))
@@ -123,15 +131,33 @@ for line in sys.stdin:
             if len(sample_means) == 10:
                 break
 
-sanvas.create_text(118, 558, text="Hex Color Code: "+ str(colorHex) + "\nAveraged CFO: "+ str(round(Liveaverage,5))+ " kHz",font=('Helvetica', '13'),fill='white')
-MASTER.title('Color Mapped!')
-MASTER.update()
+#color_sample_count = 0
+#colorHex = "#c9c9c9"
+#sum = 0
+#for cfo in list_avg:
+#    #try:
+#    color_sample_count += 1
+#    colorHex = strRgb(cfo, cmin, cmax)
+#    sanvas.configure(background=colorHex)
+#    rgbColor = rgb(cfo, cmin, cmax)
+#    closest_name = get_colour_name(rgbColor)
+#    dataStr.set(closest_name.capitalize())
+#    datalabel.configure(fg=colorHex)
+#    sampleStr.set("{:,}".format(color_sample_count) + " / 10,000" )
+#    MASTER.update()
+#    time.sleep(.001)
+    #except:
 
 print()
 
-if len(sample_means) == 0:
+if len(sample_means) < 2:
     print("Error communicating with device.")
     exit(1)
+
+sanvas.create_text(125, 605, text=str(colorHex) + "     " + str(round(Liveaverage, 5)) + " kHz", font=('Helvetica', '15'), fill='white')  # two output values
+#sanvas.create_text(125, 605, text="Hex Color Code: "+ str(colorHex) + "\nAveraged CFO: "+ str(round(Liveaverage,5))+ " kHz",font=('Helvetica', '13'),fill='white')
+MASTER.update()
+MASTER.title('Color Mapped!')
 
 print("Samples collected:\t{}".format(sample_count))
 mean_estimator = statistics.mean(sample_means)
@@ -142,6 +168,8 @@ print("Std deviation:\t\t{}".format(statistics.stdev(sample_means)))
 with open("seen_devices.csv", "a") as f:
     f.write("{},{},{}\n".format(sys.argv[1], mean_estimator, stdev_estimator))
 
-input()
+while(1):
+    time.sleep(.1)
+    pass
 
 exit(0)
